@@ -1,27 +1,28 @@
-import Web3 from 'web3'
-import BigNumber from "bignumber.js"
-import erc20Abi from "../contract/erc20.abi.json"
-import marketplaceAbi from '../contract/marketplace.abi.json'
-import { newKitFromWeb3 } from '@celo/contractkit'
+import Web3 from "web3";
+import BigNumber from "bignumber.js";
+import erc20Abi from "../contract/erc20.abi.json";
+import marketplaceAbi from "../contract/marketplace.abi.json";
+import { newKitFromWeb3 } from "@celo/contractkit";
+import {
+	MPContractAddress,
+	ERC20_DECIMALS,
+	cUSDContractAddress,
+	toggleProperties,
+} from "./utils/constants";
 
 /**
  * Constants
  */
 
-const ERC20_DECIMALS = 18
-const MPContractAddress = "0xad86B4A5B48DD1F4A3c43D018575EDF3f1329457"
-const cUSDContractAddress = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
-const toggleProperties = ['name', 'img', 'desc', 'loc']
-
 /**
  * Properties
  */
 
-let kit
-let contract
-let products = []
-let isAddMode = true
-let modifyIndex = 0
+let kit;
+let contract;
+let products = [];
+let isAddMode = true;
+let modifyIndex = 0;
 
 /**
  * Connect Celo Wallet
@@ -30,34 +31,34 @@ let modifyIndex = 0
 const connectCeloWallet = async function () {
 	if (window.celo) {
 		try {
-			notification("⚠️ Please approve this DApp to use it.")
-			await window.celo.enable()
-			notificationOff()
-			const web3 = new Web3(window.celo)
-			kit = newKitFromWeb3(web3)
+			notification("⚠️ Please approve this DApp to use it.");
+			await window.celo.enable();
+			notificationOff();
+			const web3 = new Web3(window.celo);
+			kit = newKitFromWeb3(web3);
 
-			const accounts = await kit.web3.eth.getAccounts()
-			kit.defaultAccount = accounts[0]
+			const accounts = await kit.web3.eth.getAccounts();
+			kit.defaultAccount = accounts[0];
 
-			contract = new kit.web3.eth.Contract(marketplaceAbi, MPContractAddress)
+			contract = new kit.web3.eth.Contract(marketplaceAbi, MPContractAddress);
 		} catch (error) {
-			notification(`⚠️ ${error}.`)
+			notification(`⚠️ ${error}.`);
 		}
 	} else {
-		notification("⚠️ Please install the CeloExtensionWallet.")
+		notification("⚠️ Please install the CeloExtensionWallet.");
 	}
-}
+};
 
 /**
  * Get Products
  */
 
 const getProducts = async function () {
-	const _productsLength = await contract.methods.getProductsLength().call()
-	const _products = []
+	const _productsLength = await contract.methods.getProductsLength().call();
+	const _products = [];
 	for (let i = 0; i < _productsLength; i++) {
 		let _product = new Promise(async (resolve, reject) => {
-			let p = await contract.methods.readProduct(i).call()
+			let p = await contract.methods.readProduct(i).call();
 			resolve({
 				index: i,
 				owner: p[0],
@@ -67,36 +68,36 @@ const getProducts = async function () {
 				location: p[4],
 				price: new BigNumber(p[5]),
 				sold: p[6],
-			})
-		})
-		_products.push(_product)
+			});
+		});
+		_products.push(_product);
 	}
-	products = await Promise.all(_products)
-	renderProducts()
-}
+	products = await Promise.all(_products);
+	renderProducts();
+};
 
 /**
  * Get Balance
  */
 
 const getBalance = async function () {
-	const balanceInfo = await kit.getTotalBalance(kit.defaultAccount)
-	const balance = getReadableTokenAmount(balanceInfo.cUSD)
-	document.querySelector("#balance").textContent = balance
-}
+	const balanceInfo = await kit.getTotalBalance(kit.defaultAccount);
+	const balance = getReadableTokenAmount(balanceInfo.cUSD);
+	document.querySelector("#balance").textContent = balance;
+};
 
 /**
  * Render Products
  */
 
 function renderProducts() {
-	document.getElementById("marketplace").innerHTML = ""
+	document.getElementById("marketplace").innerHTML = "";
 	products.forEach((_product) => {
-		const newDiv = document.createElement("div")
-		newDiv.className = "col-md-4"
-		newDiv.innerHTML = productTemplate(_product)
-		document.getElementById("marketplace").appendChild(newDiv)
-	})
+		const newDiv = document.createElement("div");
+		newDiv.className = "col-md-4";
+		newDiv.innerHTML = productTemplate(_product);
+		document.getElementById("marketplace").appendChild(newDiv);
+	});
 }
 
 /**
@@ -123,18 +124,22 @@ function productTemplate(_product) {
 					<span>${_product.location}</span>
 				</p>
 				<div class="d-grid gap-2">
-					<a class="btn btn-lg btn-outline-dark product-btn buyBtn fs-6 p-3" id=${_product.index}>
+					<a class="btn btn-lg btn-outline-dark product-btn buyBtn fs-6 p-3" id=${
+						_product.index
+					}>
 						Buy for ${getReadableTokenAmount(_product.price)} cUSD
 					</a>
 				</div>
 				<div class="d-grid gap-2">
-					<a class="btn btn-lg btn-outline-dark modifyBtn fs-6 p-3" id=${_product.index} data-bs-toggle="modal" data-bs-target="#addModal">
+					<a class="btn btn-lg btn-outline-dark modifyBtn fs-6 p-3" id=${
+						_product.index
+					} data-bs-toggle="modal" data-bs-target="#addModal">
 						Modify Price
 					</a>
 				</div>
 			</div>
 		</div>
-	`
+	`;
 }
 
 /**
@@ -148,7 +153,7 @@ function identiconTemplate(_address) {
 			size: 8,
 			scale: 16,
 		})
-		.toDataURL()
+		.toDataURL();
 	return `
 	<div class="rounded-circle overflow-hidden d-inline-block border border-white border-2 shadow-sm m-0">
 		<a href="https://alfajores-blockscout.celo-testnet.org/address/${_address}/transactions"
@@ -156,7 +161,7 @@ function identiconTemplate(_address) {
 			<img src="${icon}" width="48" alt="${_address}">
 		</a>
 	</div>
-	`
+	`;
 }
 
 /**
@@ -164,7 +169,7 @@ function identiconTemplate(_address) {
  */
 
 function getReadableTokenAmount(bigNum) {
-	return bigNum.shiftedBy(-ERC20_DECIMALS).toFixed(2)
+	return bigNum.shiftedBy(-ERC20_DECIMALS).toFixed(2);
 }
 
 /**
@@ -172,9 +177,7 @@ function getReadableTokenAmount(bigNum) {
  */
 
 function getBigNumberAmount(amount) {
-	return new BigNumber(amount)
-		.shiftedBy(ERC20_DECIMALS)
-		.toString()
+	return new BigNumber(amount).shiftedBy(ERC20_DECIMALS).toString();
 }
 
 /**
@@ -182,8 +185,8 @@ function getBigNumberAmount(amount) {
  */
 
 function notification(_text) {
-	document.querySelector(".alert").style.display = "block"
-	document.querySelector("#notification").textContent = _text
+	document.querySelector(".alert").style.display = "block";
+	document.querySelector("#notification").textContent = _text;
 }
 
 /**
@@ -191,7 +194,7 @@ function notification(_text) {
  */
 
 function notificationOff() {
-	document.querySelector(".alert").style.display = "none"
+	document.querySelector(".alert").style.display = "none";
 }
 
 /**
@@ -199,8 +202,8 @@ function notificationOff() {
  */
 
 function hideElement(id) {
-	const elem = document.querySelector(`#${id}`)
-	elem.style.display = "none"
+	const elem = document.querySelector(`#${id}`);
+	elem.style.display = "none";
 }
 
 /**
@@ -208,8 +211,8 @@ function hideElement(id) {
  */
 
 function showElement(id) {
-	const elem = document.querySelector(`#${id}`)
-	elem.style.display = "block"
+	const elem = document.querySelector(`#${id}`);
+	elem.style.display = "block";
 }
 
 /**
@@ -217,10 +220,10 @@ function showElement(id) {
  */
 
 function editModal(labelText, buttonText) {
-	const labelElem = document.querySelector('#newProductModalLabel')
-	const buttonElem = document.querySelector('#newProductBtn')
-	labelElem.textContent = labelText
-	buttonElem.textContent = buttonText
+	const labelElem = document.querySelector("#newProductModalLabel");
+	const buttonElem = document.querySelector("#newProductBtn");
+	labelElem.textContent = labelText;
+	buttonElem.textContent = buttonText;
 }
 
 /**
@@ -228,11 +231,11 @@ function editModal(labelText, buttonText) {
  */
 
 function modifyPriceEvent() {
-	isAddMode = false
-	const name = products[modifyIndex].name
-	editModal(`Modify "${name}" Price`, 'Save price')
+	isAddMode = false;
+	const name = products[modifyIndex].name;
+	editModal(`Modify "${name}" Price`, "Save price");
 	for (const property of toggleProperties) {
-		hideElement(`prod-${property}`)
+		hideElement(`prod-${property}`);
 	}
 }
 
@@ -241,10 +244,10 @@ function modifyPriceEvent() {
  */
 
 function addProductEvent() {
-	isAddMode = true
-	editModal('New Product', 'Add product')
+	isAddMode = true;
+	editModal("New Product", "Add product");
 	for (const property of toggleProperties) {
-		showElement(`prod-${property}`)
+		showElement(`prod-${property}`);
 	}
 }
 
@@ -253,24 +256,24 @@ function addProductEvent() {
  */
 
 async function approve(_price) {
-	const cUSDContract = new kit.web3.eth.Contract(erc20Abi, cUSDContractAddress)
+	const cUSDContract = new kit.web3.eth.Contract(erc20Abi, cUSDContractAddress);
 	const result = await cUSDContract.methods
 		.approve(MPContractAddress, _price)
-		.send({ from: kit.defaultAccount })
-	return result
+		.send({ from: kit.defaultAccount });
+	return result;
 }
 
 /**
  * Load Event Listener
  */
 
-window.addEventListener('load', async () => {
-	notification("⌛ Loading...")
-	await connectCeloWallet()
-	await getBalance()
-	await getProducts()
-	notificationOff()
-})
+window.addEventListener("load", async () => {
+	notification("⌛ Loading...");
+	await connectCeloWallet();
+	await getBalance();
+	await getProducts();
+	notificationOff();
+});
 
 /**
  * New Product Button Listener
@@ -279,7 +282,6 @@ window.addEventListener('load', async () => {
 document
 	.querySelector("#newProductBtn")
 	.addEventListener("click", async (e) => {
-
 		// Add Product
 		if (isAddMode) {
 			const params = [
@@ -287,39 +289,39 @@ document
 				document.getElementById("newImgUrl").value,
 				document.getElementById("newProductDescription").value,
 				document.getElementById("newLocation").value,
-				getBigNumberAmount(document.getElementById("newPrice").value)
-			]
-			notification(`⌛ Adding "${params[0]}"...`)
+				getBigNumberAmount(document.getElementById("newPrice").value),
+			];
+			notification(`⌛ Adding "${params[0]}"...`);
 			try {
 				await contract.methods
 					.writeProduct(...params)
-					.send({ from: kit.defaultAccount })
+					.send({ from: kit.defaultAccount });
 			} catch (error) {
-				notification(`⚠️ ${error}.`)
+				notification(`⚠️ ${error}.`);
 			}
-			notification(`🎉 You successfully added "${params[0]}".`)
-			getProducts()
+			notification(`🎉 You successfully added "${params[0]}".`);
+			getProducts();
 		}
 
 		// Modify Price
 		else {
-			const name = products[modifyIndex].name
+			const name = products[modifyIndex].name;
 			const params = [
 				modifyIndex,
-				getBigNumberAmount(document.getElementById("newPrice").value)
-			]
-			notification(`⌛ Modifying "${name}" price...`)
+				getBigNumberAmount(document.getElementById("newPrice").value),
+			];
+			notification(`⌛ Modifying "${name}" price...`);
 			try {
 				await contract.methods
 					.modifyPrice(...params)
-					.send({ from: kit.defaultAccount })
+					.send({ from: kit.defaultAccount });
 			} catch (error) {
-				notification(`⚠️ ${error}.`)
+				notification(`⚠️ ${error}.`);
 			}
-			notification(`🎉 You successfully modified "${name}" price.`)
-			getProducts()
+			notification(`🎉 You successfully modified "${name}" price.`);
+			getProducts();
 		}
-	})
+	});
 
 /**
  * Add Product Button Listener
@@ -327,39 +329,38 @@ document
 
 document
 	.querySelector("#addProductBtn")
-	.addEventListener("click", addProductEvent)
+	.addEventListener("click", addProductEvent);
 
 /**
  * Main Row Click
  */
 
 document.querySelector("#marketplace").addEventListener("click", async (e) => {
-
 	// Buy Buttons
 	if (e.target.className.includes("buyBtn")) {
-		const index = e.target.id
-		notification("⌛ Waiting for payment approval...")
+		const index = e.target.id;
+		notification("⌛ Waiting for payment approval...");
 		try {
-			await approve(products[index].price)
+			await approve(products[index].price);
 		} catch (error) {
-			notification(`⚠️ ${error}.`)
+			notification(`⚠️ ${error}.`);
 		}
-		notification(`⌛ Awaiting payment for "${products[index].name}"...`)
+		notification(`⌛ Awaiting payment for "${products[index].name}"...`);
 		try {
 			await contract.methods
 				.buyProduct(index)
-				.send({ from: kit.defaultAccount })
-			notification(`🎉 You successfully bought "${products[index].name}".`)
-			getProducts()
-			getBalance()
+				.send({ from: kit.defaultAccount });
+			notification(`🎉 You successfully bought "${products[index].name}".`);
+			getProducts();
+			getBalance();
 		} catch (error) {
-			notification(`⚠️ ${error}.`)
+			notification(`⚠️ ${error}.`);
 		}
 	}
 
 	// Modify Buttons
 	else if (e.target.className.includes("modifyBtn")) {
-		modifyIndex = Number(e.target.id)
-		modifyPriceEvent()
+		modifyIndex = Number(e.target.id);
+		modifyPriceEvent();
 	}
-})
+});

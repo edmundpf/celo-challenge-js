@@ -9,8 +9,9 @@ import { newKitFromWeb3 } from '@celo/contractkit'
  */
 
 const ERC20_DECIMALS = 18
-const MPContractAddress = "0x7eC49E4c88c85d1498374f04b318816f18f30181"
+const MPContractAddress = "0xad86B4A5B48DD1F4A3c43D018575EDF3f1329457"
 const cUSDContractAddress = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
+const toggleProperties = ['name', 'img', 'desc', 'loc']
 
 /**
  * Properties
@@ -19,6 +20,8 @@ const cUSDContractAddress = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
 let kit
 let contract
 let products = []
+let isAddMode = true
+let modifyIndex = 0
 
 /**
  * Connect Celo Wallet
@@ -120,8 +123,13 @@ function productTemplate(_product) {
 					<span>${_product.location}</span>
 				</p>
 				<div class="d-grid gap-2">
-					<a class="btn btn-lg btn-outline-dark buyBtn fs-6 p-3" id=${_product.index}>
+					<a class="btn btn-lg btn-outline-dark product-btn buyBtn fs-6 p-3" id=${_product.index}>
 						Buy for ${getReadableTokenAmount(_product.price)} cUSD
+					</a>
+				</div>
+				<div class="d-grid gap-2">
+					<a class="btn btn-lg btn-outline-dark modifyBtn fs-6 p-3" id=${_product.index} data-bs-toggle="modal" data-bs-target="#addModal">
+						Modify Price
 					</a>
 				</div>
 			</div>
@@ -160,6 +168,16 @@ function getReadableTokenAmount(bigNum) {
 }
 
 /**
+ * Get Big Number Amount
+ */
+
+function getBigNumberAmount(amount) {
+	return new BigNumber(amount)
+		.shiftedBy(ERC20_DECIMALS)
+		.toString()
+}
+
+/**
  * Notification
  */
 
@@ -174,6 +192,60 @@ function notification(_text) {
 
 function notificationOff() {
 	document.querySelector(".alert").style.display = "none"
+}
+
+/**
+ * Hide Element
+ */
+
+function hideElement(id) {
+	const elem = document.querySelector(`#${id}`)
+	elem.style.display = "none"
+}
+
+/**
+ * Show Element
+ */
+
+function showElement(id) {
+	const elem = document.querySelector(`#${id}`)
+	elem.style.display = "block"
+}
+
+/**
+ * Edit Modal
+ */
+
+function editModal(labelText, buttonText) {
+	const labelElem = document.querySelector('#newProductModalLabel')
+	const buttonElem = document.querySelector('#newProductBtn')
+	labelElem.textContent = labelText
+	buttonElem.textContent = buttonText
+}
+
+/**
+ * Modify Price Event
+ */
+
+function modifyPriceEvent() {
+	isAddMode = false
+	const name = products[modifyIndex].name
+	editModal(`Modify "${name}" Price`, 'Save price')
+	for (const property of toggleProperties) {
+		hideElement(`prod-${property}`)
+	}
+}
+
+/**
+ * Add Product Event
+ */
+
+function addProductEvent() {
+	isAddMode = true
+	editModal('New Product', 'Add product')
+	for (const property of toggleProperties) {
+		showElement(`prod-${property}`)
+	}
 }
 
 /**
@@ -207,32 +279,63 @@ window.addEventListener('load', async () => {
 document
 	.querySelector("#newProductBtn")
 	.addEventListener("click", async (e) => {
-		const params = [
-			document.getElementById("newProductName").value,
-			document.getElementById("newImgUrl").value,
-			document.getElementById("newProductDescription").value,
-			document.getElementById("newLocation").value,
-			new BigNumber(document.getElementById("newPrice").value)
-				.shiftedBy(ERC20_DECIMALS)
-				.toString()
-		]
-		notification(`⌛ Adding "${params[0]}"...`)
-		try {
-			await contract.methods
-				.writeProduct(...params)
-				.send({ from: kit.defaultAccount })
-		} catch (error) {
-			notification(`⚠️ ${error}.`)
+
+		// Add Product
+		if (isAddMode) {
+			const params = [
+				document.getElementById("newProductName").value,
+				document.getElementById("newImgUrl").value,
+				document.getElementById("newProductDescription").value,
+				document.getElementById("newLocation").value,
+				getBigNumberAmount(document.getElementById("newPrice").value)
+			]
+			notification(`⌛ Adding "${params[0]}"...`)
+			try {
+				await contract.methods
+					.writeProduct(...params)
+					.send({ from: kit.defaultAccount })
+			} catch (error) {
+				notification(`⚠️ ${error}.`)
+			}
+			notification(`🎉 You successfully added "${params[0]}".`)
+			getProducts()
 		}
-		notification(`🎉 You successfully added "${params[0]}".`)
-		getProducts()
+
+		// Modify Price
+		else {
+			const name = products[modifyIndex].name
+			const params = [
+				modifyIndex,
+				getBigNumberAmount(document.getElementById("newPrice").value)
+			]
+			notification(`⌛ Modifying "${name}" price...`)
+			try {
+				await contract.methods
+					.modifyPrice(...params)
+					.send({ from: kit.defaultAccount })
+			} catch (error) {
+				notification(`⚠️ ${error}.`)
+			}
+			notification(`🎉 You successfully modified "${name}" price.`)
+			getProducts()
+		}
 	})
+
+/**
+ * Add Product Button Listener
+ */
+
+document
+	.querySelector("#addProductBtn")
+	.addEventListener("click", addProductEvent)
 
 /**
  * Main Row Click
  */
 
 document.querySelector("#marketplace").addEventListener("click", async (e) => {
+
+	// Buy Buttons
 	if (e.target.className.includes("buyBtn")) {
 		const index = e.target.id
 		notification("⌛ Waiting for payment approval...")
@@ -252,5 +355,11 @@ document.querySelector("#marketplace").addEventListener("click", async (e) => {
 		} catch (error) {
 			notification(`⚠️ ${error}.`)
 		}
+	}
+
+	// Modify Buttons
+	else if (e.target.className.includes("modifyBtn")) {
+		modifyIndex = Number(e.target.id)
+		modifyPriceEvent()
 	}
 })

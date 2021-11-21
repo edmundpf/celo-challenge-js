@@ -58,7 +58,13 @@ const getProducts = async function () {
 	const _products = [];
 	for (let i = 0; i < _productsLength; i++) {
 		let _product = new Promise(async (resolve, reject) => {
-			let p = await contract.methods.readProduct(i).call();
+			const calls = [
+				contract.methods.readProduct(i).call(),
+				contract.methods.readProductLikesInfo(i).call(),
+			]
+			const res = await Promise.all(calls)
+			const p = res[0]
+			const q = res[1]
 			resolve({
 				index: i,
 				owner: p[0],
@@ -68,6 +74,8 @@ const getProducts = async function () {
 				location: p[4],
 				price: new BigNumber(p[5]),
 				sold: p[6],
+				likes: Number(q[0]) || 0,
+				hasLiked: q[1] ? true : false
 			});
 		});
 		_products.push(_product);
@@ -113,25 +121,32 @@ function productTemplate(_product) {
 			</div>
 			<div class="card-body text-left p-4 position-relative">
 				<div class="translate-middle-y position-absolute top-0">
-				${identiconTemplate(_product.owner)}
+					${identiconTemplate(_product.owner)}
+				</div>
+				<div class="translate-middle-y position-absolute top-0 end-1">
+					${heartButtonTemplate(_product.index, _product.hasLiked)}
 				</div>
 				<h2 class="card-title fs-4 fw-bold mt-2">${_product.name}</h2>
-				<p class="card-text mb-4" style="min-height: 82px">
+				<p class="card-text mb-4" style="min-height: 62px">
 					${_product.description}
 				</p>
 				<p class="card-text mt-4">
 					<i class="bi bi-geo-alt-fill"></i>
 					<span>${_product.location}</span>
 				</p>
+				<p class="card-text">
+					<i class="bi bi-heart-fill"></i>
+					<span>${_product.likes} Likes</span>
+				</p>
 				<div class="d-grid gap-2">
-					<a class="btn btn-lg btn-outline-dark product-btn buyBtn fs-6 p-3" id=${
+					<a class="btn btn-lg btn-outline-light product-btn buyBtn fs-6 p-3" id=${
 						_product.index
 					}>
 						Buy for ${getReadableTokenAmount(_product.price)} cUSD
 					</a>
 				</div>
 				<div class="d-grid gap-2">
-					<a class="btn btn-lg btn-outline-dark modifyBtn fs-6 p-3" id=${
+					<a class="btn btn-lg btn-outline-light modifyBtn fs-6 p-3" id=${
 						_product.index
 					} data-bs-toggle="modal" data-bs-target="#addModal">
 						Modify Price
@@ -162,6 +177,20 @@ function identiconTemplate(_address) {
 		</a>
 	</div>
 	`;
+}
+
+/**
+ * Heart Button Template
+ */
+
+function heartButtonTemplate(id, hasLiked) {
+	const btnClass = hasLiked ? 'btn-secondary' : 'btn-danger'
+	const disabled = hasLiked ? 'disabled' : ''
+	return `
+	<button type="button" class="btn ${btnClass} heart-btn heartBtn" id=${id} ${disabled}>
+		<i class="bi bi-heart heartBtn" id=${id}></i>
+	</button>
+	`
 }
 
 /**
@@ -362,5 +391,22 @@ document.querySelector("#marketplace").addEventListener("click", async (e) => {
 	else if (e.target.className.includes("modifyBtn")) {
 		modifyIndex = Number(e.target.id);
 		modifyPriceEvent();
+	}
+
+	// Heart Buttons
+	else if (e.target.className.includes('heartBtn')) {
+		const heartIndex = e.target.id
+		const name = products[heartIndex].name;
+		const params = [heartIndex];
+		notification(`⌛ Liking "${name}"...`);
+		try {
+			await contract.methods
+				.likeProduct(...params)
+				.send({ from: kit.defaultAccount });
+		} catch (error) {
+			notification(`⚠️ ${error}.`);
+		}
+		notification(`🎉 You successfully liked "${name}".`);
+		getProducts();
 	}
 });
